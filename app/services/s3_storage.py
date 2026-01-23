@@ -400,6 +400,52 @@ class S3StorageBackend(StorageBackend):
             logger.error(f"Failed to delete from S3: {e}")
             raise
 
+    def delete_all(self) -> int:
+        """
+        Delete ALL objects in the S3 bucket (entire cache).
+
+        WARNING: This deletes everything in the bucket! Use with caution.
+
+        Returns:
+            Number of objects deleted
+
+        Raises:
+            Exception if delete fails
+
+        Note: Uses batch deletion (up to 1000 objects per API call)
+        """
+        total_deleted = 0
+
+        try:
+            # Paginate through ALL objects in the bucket
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            for page in paginator.paginate(Bucket=self.bucket_name):
+                if 'Contents' not in page:
+                    continue
+
+                # Collect keys to delete (max 1000 per batch)
+                keys_to_delete = [{'Key': obj['Key']} for obj in page['Contents']]
+
+                if keys_to_delete:
+                    # Batch delete
+                    response = self.s3_client.delete_objects(
+                        Bucket=self.bucket_name,
+                        Delete={'Objects': keys_to_delete}
+                    )
+
+                    # Count deleted objects
+                    deleted_count = len(response.get('Deleted', []))
+                    total_deleted += deleted_count
+
+                    logger.info(f"Deleted {deleted_count} objects from S3 (batch)")
+
+            logger.info(f"Cleared entire S3 cache: {total_deleted} objects deleted")
+            return total_deleted
+
+        except Exception as e:
+            logger.error(f"Failed to delete all from S3: {e}")
+            raise
+
     def list_documents(self) -> List[str]:
         """
         List all cached document IDs from S3 across all document types.

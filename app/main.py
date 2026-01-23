@@ -656,13 +656,17 @@ async def clear_cache(document_id: Optional[str] = None):
     """
     Clear cache for specific document or entire cache.
 
+    Clears BOTH:
+    - S3 document cache (chunks, embeddings, metadata)
+    - Redis query cache (RAG responses, SQL queries, embeddings)
+
     Args:
         document_id: Optional document ID to clear (if not provided, clears all cache)
 
     Returns:
         dict: Result of cache clearing operation
     """
-    global cache_service
+    global cache_service, query_cache_service
 
     if not cache_service:
         raise HTTPException(
@@ -674,11 +678,29 @@ async def clear_cache(document_id: Optional[str] = None):
         )
 
     try:
-        result = cache_service.clear_cache(doc_id=document_id)
+        # Clear S3 document cache (chunks, embeddings, metadata)
+        s3_result = cache_service.clear_cache(doc_id=document_id)
 
+        # Also clear Redis query cache if clearing entire cache
+        redis_cleared = False
+        redis_message = "Redis cache not enabled"
+
+        if not document_id and query_cache_service and query_cache_service.enabled:
+            # Clearing entire cache - also flush Redis
+            try:
+                redis_cleared = query_cache_service.flush_all()
+                redis_message = "Redis cache cleared successfully" if redis_cleared else "Redis flush failed"
+            except Exception as e:
+                redis_message = f"Redis flush error: {str(e)}"
+
+        # Combine results
         return {
-            "status": "success" if result['cleared'] else "failed",
-            **result
+            "status": "success" if s3_result['cleared'] else "failed",
+            "s3_cache": s3_result,
+            "redis_cache": {
+                "cleared": redis_cleared,
+                "message": redis_message
+            }
         }
 
     except Exception as e:
