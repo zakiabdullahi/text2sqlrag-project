@@ -39,29 +39,11 @@ jobs:
           echo "=========================================="
           echo ""
 
-      - name: Set up QEMU
+      - name: Set up Docker
         run: |
-          echo "🔧 Setting up QEMU for x86-64 emulation..."
-
-      - name: Set up QEMU (action)
-        uses: docker/setup-qemu-action@v3
-
-      - name: Verify QEMU
-        run: |
-          echo "✅ QEMU installed successfully!"
-          echo ""
-
-      - name: Set up Docker Buildx
-        run: |
-          echo "🔧 Setting up Docker Buildx for multi-platform builds..."
-
-      - name: Set up Docker Buildx (action)
-        uses: docker/setup-buildx-action@v3
-
-      - name: Verify Buildx
-        run: |
-          echo "✅ Docker Buildx installed successfully!"
-          docker buildx ls
+          echo "🔧 Verifying Docker installation..."
+          docker version
+          echo "✅ Docker ready!"
           echo ""
 
       - name: Configure AWS credentials
@@ -96,25 +78,50 @@ jobs:
           echo "Registry: ${{ steps.login-ecr.outputs.registry }}"
           echo ""
 
-      - name: Build, tag, and push image to ECR
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.lambda
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:amd64
-          cache-from: |
-            type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache
-            type=gha
-          cache-to: |
-            type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache,mode=max
-            type=gha,mode=max
-          outputs: type=image,compression=zstd,compression-level=3
-          provenance: false
+      - name: Pull base image
+        run: |
+          echo "📥 Pulling Lambda base image..."
+          echo "   Image: ${{ steps.login-ecr.outputs.registry }}/lambda-python-deps:3.12"
+          docker pull ${{ steps.login-ecr.outputs.registry }}/lambda-python-deps:3.12
+          echo "✅ Base image pulled successfully"
+          echo ""
+
+      - name: Build Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "🔨 Building Docker image..."
+          echo "   Platform: linux/amd64"
+          echo "   Image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo ""
+
+          docker build \
+            --platform linux/amd64 \
+            -f Dockerfile.lambda \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:amd64 \
+            .
+
+          echo "✅ Build complete!"
+          echo ""
+
+      - name: Push images to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "📤 Pushing images to ECR..."
+          echo "   Pushing 3 tags: $IMAGE_TAG, latest, amd64"
+          echo ""
+
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:amd64
+
+          echo "✅ All images pushed successfully!"
+          echo ""
 
       - name: Print build summary
         run: |
