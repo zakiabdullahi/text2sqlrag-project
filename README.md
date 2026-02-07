@@ -13,6 +13,8 @@ A production-ready FastAPI application that combines **Document RAG (Retrieval-A
 
 ---
 
+
+
 ## 📋 Table of Contents
 
 - [Features](#features)
@@ -29,6 +31,7 @@ A production-ready FastAPI application that combines **Document RAG (Retrieval-A
 - [Evaluation](#evaluation)
 - [Development](#development)
 - [Resources](#resources)
+
 
 ---
 
