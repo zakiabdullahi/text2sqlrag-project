@@ -49,7 +49,19 @@ jobs:
       - name: Configure AWS credentials
         run: |
           echo "🔐 Configuring AWS credentials..."
+      - name: Debug AWS Secrets
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "AWS_ACCESS_KEY_ID is EMPTY"
+          else
+            echo "AWS_ACCESS_KEY_ID is SET"
+          fi
 
+          if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "AWS_SECRET_ACCESS_KEY is EMPTY"
+          else
+            echo "AWS_SECRET_ACCESS_KEY is SET"
+          fi
       - name: Configure AWS credentials (action)
         uses: aws-actions/configure-aws-credentials@v4
         with:
