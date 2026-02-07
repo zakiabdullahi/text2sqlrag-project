@@ -90,13 +90,13 @@ jobs:
           echo "Registry: ${{ steps.login-ecr.outputs.registry }}"
           echo ""
 
-      - name: Pull base image
-        run: |
-          echo "📥 Pulling Lambda base image..."
-          echo "   Image: ${{ steps.login-ecr.outputs.registry }}/lambda-python-deps:3.12"
-          docker pull ${{ steps.login-ecr.outputs.registry }}/lambda-python-deps:3.12
-          echo "✅ Base image pulled successfully"
-          echo ""
+      # - name: Pull base image
+      #   run: |
+      #     echo "📥 Pulling Lambda base image..."
+      #     echo "   Image: ${{ steps.login-ecr.outputs.registry }}/lambda-python-deps:3.12"
+      #     docker pull ${{ steps.login-ecr.outputs.registry }}/lambda-python-deps:3.12
+      #     echo "✅ Base image pulled successfully"
+      #     echo ""
 
       - name: Build Docker image
         env:
