@@ -97,7 +97,12 @@ jobs:
       #     docker pull ${{ steps.login-ecr.outputs.registry }}/lambda-python-deps:3.12
       #     echo "✅ Base image pulled successfully"
       #     echo ""
-
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          docker system prune -af
       - name: Build Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
