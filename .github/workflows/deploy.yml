@@ -149,51 +149,114 @@ jobs:
           echo "Tags: ${{ github.sha }}, latest, amd64"
           echo "Platform: linux/amd64"
           echo ""
-
-      - name: Update Lambda function
+      - name: Deploy Lambda function
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+      
           echo ""
           echo "=========================================="
-          echo "🚀 Updating Lambda Function"
+          echo "🚀 Deploying Lambda Function"
           echo "=========================================="
           echo "Function Name: ${{ env.LAMBDA_FUNCTION }}"
-          echo "Image URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Image URI: $IMAGE_URI"
           echo "Architecture: x86-64"
           echo "Region: ${{ env.AWS_REGION }}"
           echo ""
-
-          # Update Lambda function code with ARM64 architecture
-          # IMPORTANT: --architectures flag MUST be used with update-function-code
-          echo "📝 Updating Lambda function code..."
-          aws lambda update-function-code \
+      
+          # Check if function exists
+          if aws lambda get-function \
             --function-name ${{ env.LAMBDA_FUNCTION }} \
-            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            --architectures x86_64
-          echo "✅ Update command sent!"
+            > /dev/null 2>&1; then
+      
+            echo "🔄 Function exists. Updating..."
+            
+            aws lambda update-function-code \
+              --function-name ${{ env.LAMBDA_FUNCTION }} \
+              --image-uri $IMAGE_URI \
+              --architectures x86_64
+      
+            echo "⏳ Waiting for update..."
+            aws lambda wait function-updated \
+              --function-name ${{ env.LAMBDA_FUNCTION }}
+      
+          else
+            echo "🆕 Function does not exist. Creating..."
+      
+            aws lambda create-function \
+              --function-name ${{ env.LAMBDA_FUNCTION }} \
+              --package-type Image \
+              --code ImageUri=$IMAGE_URI \
+              --role arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/rag-lambda-execution-role \
+              --architectures x86_64 \
+              --timeout 900 \
+              --memory-size 3008 \
+              --ephemeral-storage Size=10240 \
+              --description "Multi-Source RAG + Text-to-SQL API"
+      
+            echo "⏳ Waiting for creation..."
+            aws lambda wait function-active \
+              --function-name ${{ env.LAMBDA_FUNCTION }}
+          fi
+      
           echo ""
-
-          # Wait for update to complete
-          echo "⏳ Waiting for Lambda function to finish updating..."
-          echo "   This may take 30-60 seconds..."
-          aws lambda wait function-updated \
-            --function-name ${{ env.LAMBDA_FUNCTION }}
-          echo "✅ Lambda function updated successfully!"
-          echo ""
-
-          # Get function info
           echo "📊 Lambda Function Status:"
           aws lambda get-function \
             --function-name ${{ env.LAMBDA_FUNCTION }} \
             --query '{State:Configuration.State,LastUpdateStatus:Configuration.LastUpdateStatus,Architecture:Configuration.Architectures[0],Memory:Configuration.MemorySize,Timeout:Configuration.Timeout}' \
             --output table
+      
           echo ""
-
           echo "=========================================="
           echo "✅ Lambda deployment completed!"
           echo "=========================================="
+
+      # - name: Update Lambda function
+      #   env:
+      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      #     IMAGE_TAG: ${{ github.sha }}
+      #   run: |
+      #     echo ""
+      #     echo "=========================================="
+      #     echo "🚀 Updating Lambda Function"
+      #     echo "=========================================="
+      #     echo "Function Name: ${{ env.LAMBDA_FUNCTION }}"
+      #     echo "Image URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+      #     echo "Architecture: x86-64"
+      #     echo "Region: ${{ env.AWS_REGION }}"
+      #     echo ""
+
+      #     # Update Lambda function code with ARM64 architecture
+      #     # IMPORTANT: --architectures flag MUST be used with update-function-code
+      #     echo "📝 Updating Lambda function code..."
+      #     aws lambda update-function-code \
+      #       --function-name ${{ env.LAMBDA_FUNCTION }} \
+      #       --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+      #       --architectures x86_64
+      #     echo "✅ Update command sent!"
+      #     echo ""
+
+      #     # Wait for update to complete
+      #     echo "⏳ Waiting for Lambda function to finish updating..."
+      #     echo "   This may take 30-60 seconds..."
+      #     aws lambda wait function-updated \
+      #       --function-name ${{ env.LAMBDA_FUNCTION }}
+      #     echo "✅ Lambda function updated successfully!"
+      #     echo ""
+
+      #     # Get function info
+      #     echo "📊 Lambda Function Status:"
+      #     aws lambda get-function \
+      #       --function-name ${{ env.LAMBDA_FUNCTION }} \
+      #       --query '{State:Configuration.State,LastUpdateStatus:Configuration.LastUpdateStatus,Architecture:Configuration.Architectures[0],Memory:Configuration.MemorySize,Timeout:Configuration.Timeout}' \
+      #       --output table
+      #     echo ""
+
+      #     echo "=========================================="
+      #     echo "✅ Lambda deployment completed!"
+      #     echo "=========================================="
 
       - name: Configure Lambda Environment (S3 Storage + Redis Cache)
         run: |
