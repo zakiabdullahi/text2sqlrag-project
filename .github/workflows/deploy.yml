@@ -6,7 +6,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: rag-text-to-sql-server
+  ECR_REPOSITORY: rag-text-to-sql
   BASE_IMAGE_REPOSITORY: lambda-python-deps
   BASE_IMAGE_TAG: "3.12"
 
