@@ -20,6 +20,8 @@ _handler = Mangum(app, lifespan="off", api_gateway_base_path="/prod")
 # Flag to track if services have been initialized
 _services_initialized = False
 
+
+
 def handler(event, context):
     """
     Lambda handler with lazy service initialization.
